@@ -1,0 +1,112 @@
+# Agent Configuration
+agents:
+  research:
+    model: "gemini-2.5-flash"
+    temperature: 0.3
+    max_output_tokens: 2048
+    description: "Researches topics and gathers key information"
+    
+  content_generator:
+    model: "gemini-2.5-pro"
+    temperature: 0.7
+    max_output_tokens: 4096
+    description: "Generates high-quality blog content"
+  
+  editor:
+    model: "gemini-2.5-pro"
+    temperature: 0.4
+    max_output_tokens: 4096
+    description: "Edits and refines content for quality and clarity"
+  
+  seo_optimizer:
+    model: "gemini-2.5-flash"
+    temperature: 0.3
+    max_output_tokens: 2048
+    description: "Optimizes content for search engine visibility"
+  
+  quality_assurance:
+    model: "gemini-2.5-flash"
+    temperature: 0.2
+    max_output_tokens: 2048
+    description: "Validates content quality across multiple dimensions"
+    quality_thresholds:
+      overall_score: 0.85
+      plagiarism_score: 0.95
+      grammar_score: 0.90
+      readability_score: 0.80
+      seo_score: 0.85
+      brand_voice_score: 0.80
+      content_safety_score: 0.95
+
+# Model Registry
+models:
+  gemini-2.5-flash:
+    cost_per_1k_chars: 0.00002
+    context_window: 1000000
+    
+  gemini-2.5-pro:
+    cost_per_1k_chars: 0.00005
+    context_window: 2000000
+
+# Workflow Configuration
+workflow:
+  timeout_seconds: 300
+  max_retries: 3
+  retry_delay_seconds: 2
+  
+# Async Workflow Configuration
+async_workflow:
+  enable_pubsub: true
+  max_concurrent_projects: 10
+  ack_deadline_seconds: 600
+
+# Content Configuration
+content:
+  min_word_count: 800
+  max_word_count: 2000
+  target_word_count: 1200
+
+# Quota Management
+quota:
+  daily_budget_limit: 10.0  # USD
+  project_budget_limit: 1.0  # USD per project
+  enable_rate_limiting: true
+  budget_alert_thresholds: [50, 80, 90, 95]  # Percentage thresholds for alerts
+  enforce_budget: true
+
+# Cache Configuration (Phase 2)
+cache:
+  redis_enabled: false  # Set to true when Redis/Memorystore is available
+  redis:
+    host: "localhost"
+    port: 6379
+    db: 0
+    password: null
+    timeout: 5
+  l1_ttl_seconds: 3600  # 1 hour - application cache
+  l2_ttl_seconds: 86400  # 24 hours - Redis cache
+  enable_ai_response_cache: true
+  enable_research_cache: true
+
+# Vector Search Configuration (Phase 2)
+vector_search:
+  embedding_model: "text-embedding-004"
+  embedding_dimensions: 768
+  similarity_threshold: 0.85
+  duplicate_threshold: 0.90
+  enable_duplicate_detection: true
+  enable_semantic_search: true
+
+# Load Testing Configuration (Phase 2)
+load_testing:
+  enable: true
+  test_suites:
+    - name: "baseline"
+      num_projects: 5
+      concurrent_workers: 1
+    - name: "moderate"
+      num_projects: 20
+      concurrent_workers: 5
+    - name: "stress"
+      num_projects: 50
+      concurrent_workers: 10
