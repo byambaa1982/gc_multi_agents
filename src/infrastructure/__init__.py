@@ -8,7 +8,12 @@ from .pubsub_manager import PubSubManager
 from .quota_manager import QuotaManager
 from .cache_manager import CacheManager
 from .vector_search import VectorSearchService
-from .load_testing import LoadTestFramework, LoadTestConfig, LoadTestResult
+# Avoid circular import - import load_testing only when needed
+# from .load_testing import LoadTestFramework, LoadTestConfig, LoadTestResult
+
+# Phase 3: Media infrastructure
+from .storage_manager import CloudStorageManager
+from .media_processor import MediaProcessor
 
 __all__ = [
     'FirestoreManager',
@@ -17,7 +22,9 @@ __all__ = [
     'QuotaManager',
     'CacheManager',
     'VectorSearchService',
-    'LoadTestFramework',
-    'LoadTestConfig',
-    'LoadTestResult'
+    # 'LoadTestFramework',
+    # 'LoadTestConfig',
+    # 'LoadTestResult',
+    'CloudStorageManager',
+    'MediaProcessor'
 ]

@@ -37,6 +37,34 @@ agents:
       seo_score: 0.85
       brand_voice_score: 0.80
       content_safety_score: 0.95
+  
+  # Phase 3: Media Generation Agents
+  image_generator:
+    model: "gemini-2.5-flash"
+    temperature: 0.7
+    max_output_tokens: 2048
+    description: "Generates images using Vertex AI Imagen"
+    imagen_model: "imagen-3.0-generate-001"
+    default_aspect_ratio: "1:1"
+    default_quality: 85
+    max_images_per_request: 4
+  
+  video_creator:
+    model: "gemini-2.5-pro"
+    temperature: 0.7
+    max_output_tokens: 4096
+    description: "Creates video scripts and storyboards"
+    default_duration: 120  # seconds
+    max_duration: 600  # 10 minutes
+    
+  audio_creator:
+    model: "gemini-2.5-pro"
+    temperature: 0.7
+    max_output_tokens: 4096
+    description: "Creates podcast scripts and audio content"
+    default_duration: 15  # minutes
+    max_duration: 120  # 2 hours
+    speaking_rate: 150  # words per minute
 
 # Model Registry
 models:
@@ -110,3 +138,32 @@ load_testing:
     - name: "stress"
       num_projects: 50
       concurrent_workers: 10
+
+# Cloud Storage Configuration (Phase 3)
+storage:
+  bucket_name: null  # Auto-generated from project ID
+  lifecycle_rules:
+    nearline_days: 30
+    coldline_days: 90
+    delete_days: 365
+  cors_enabled: true
+  
+# Media Processing Configuration (Phase 3)
+media:
+  images:
+    default_format: "JPEG"
+    default_quality: 85
+    max_dimension: 2048
+    thumbnail_size: [300, 300]
+    responsive_sizes:
+      mobile: 320
+      tablet: 768
+      desktop: 1024
+      large: 1920
+  video:
+    default_platform: "youtube"
+    script_word_rate: 150  # words per minute
+  audio:
+    default_format: "mp3"
+    default_voice: "en-US-Neural2-J"
+    speaking_rate: 150  # words per minute

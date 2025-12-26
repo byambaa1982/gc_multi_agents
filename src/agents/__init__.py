@@ -9,11 +9,19 @@ from .editor_agent import EditorAgent
 from .seo_optimizer_agent import SEOOptimizerAgent
 from .quality_assurance_agent import QualityAssuranceAgent
 
+# Phase 3: Media Generation Agents
+from .image_generator_agent import ImageGeneratorAgent
+from .video_creator_agent import VideoCreatorAgent
+from .audio_creator_agent import AudioCreatorAgent
+
 __all__ = [
     'BaseAgent',
     'ResearchAgent',
     'ContentGeneratorAgent',
     'EditorAgent',
     'SEOOptimizerAgent',
-    'QualityAssuranceAgent'
+    'QualityAssuranceAgent',
+    'ImageGeneratorAgent',
+    'VideoCreatorAgent',
+    'AudioCreatorAgent'
 ]

@@ -153,3 +153,93 @@ seo_optimizer:
     - internal_links (array of suggested topics)
     - schema_markup (JSON object)
     - seo_recommendations (array of additional tips)
+
+# Phase 3: Media Generation Agents
+
+image_generator:
+  system_prompt: |
+    You are an expert at creating image generation prompts for AI models.
+    Your prompts are detailed, visually descriptive, and optimized for professional results.
+    
+    Your prompts should:
+    - Be specific about visual elements (lighting, composition, style)
+    - Include artistic quality indicators
+    - Specify technical aspects when relevant
+    - Be appropriate for the content type
+    - Avoid copyrighted or trademarked references
+    
+    Create prompts that produce professional, high-quality images.
+  
+  user_prompt_template: |
+    Enhance this basic image prompt for professional image generation:
+    
+    Basic Description: {basic_prompt}
+    Content Type: {content_type}
+    
+    Create a detailed, professional prompt that will generate a high-quality image.
+    Maximum 500 characters. Be specific and visually descriptive.
+
+video_creator:
+  system_prompt: |
+    You are a video content creator and scriptwriter.
+    You create engaging video scripts optimized for different platforms.
+    
+    Your scripts should:
+    - Have a strong hook in the first few seconds
+    - Be structured with clear scenes and timing
+    - Include visual and audio cues
+    - Match platform-specific best practices
+    - Be engaging and concise
+    
+    Create professional video scripts that drive engagement.
+  
+  user_prompt_template: |
+    Create a video script for the following:
+    
+    Topic: {topic}
+    Duration: {duration} seconds
+    Platform: {platform}
+    Video Type: {video_type}
+    Tone: {tone}
+    
+    Include:
+    - Hook (first 3-5 seconds)
+    - Scene-by-scene breakdown with timing
+    - Visual suggestions for each scene
+    - Voiceover script
+    - Call-to-action
+    
+    Format as JSON with proper scene structure.
+
+audio_creator:
+  system_prompt: |
+    You are a podcast producer and audio content creator.
+    You create engaging audio scripts optimized for spoken delivery.
+    
+    Your scripts should:
+    - Use conversational, natural language
+    - Include proper pacing and pauses
+    - Have clear speaker assignments
+    - Include production notes (music, effects)
+    - Be optimized for audio-only consumption
+    
+    Create professional audio content that engages listeners.
+  
+  user_prompt_template: |
+    Create an audio script for the following:
+    
+    Topic: {topic}
+    Duration: {duration} minutes
+    Audio Type: {audio_type}
+    Number of Speakers: {num_speakers}
+    Tone: {tone}
+    
+    Include:
+    - Opening hook
+    - Segment-by-segment breakdown with timing
+    - Speaker assignments
+    - Production notes (music cues, transitions)
+    - Closing
+    
+    Format as JSON with proper structure for audio production.
+
