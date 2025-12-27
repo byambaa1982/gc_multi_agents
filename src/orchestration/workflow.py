@@ -2,10 +2,14 @@
 Synchronous workflow orchestrator for content generation
 """
 
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 from src.agents import ResearchAgent, ContentGeneratorAgent
+from src.agents.publisher_agent import PublisherAgent
+from src.agents.quality_assurance_agent import QualityAssuranceAgent
 from src.infrastructure import FirestoreManager, CostTracker
+from src.infrastructure.platform_integrations import PlatformIntegrationManager
 from src.monitoring import StructuredLogger
+from src.monitoring.performance_monitor import performance_monitor
 
 
 class ContentGenerationWorkflow:
@@ -20,6 +24,11 @@ class ContentGenerationWorkflow:
         # Initialize agents
         self.research_agent = ResearchAgent()
         self.content_agent = ContentGeneratorAgent()
+        self.publisher_agent = PublisherAgent()
+        self.qa_agent = QualityAssuranceAgent()
+        
+        # Initialize platform integrations
+        self.platform_manager = PlatformIntegrationManager()
     
     def generate_content(
         self,
@@ -154,3 +163,169 @@ class ContentGenerationWorkflow:
             List of projects
         """
         return self.db.list_projects(status=status, limit=limit)
+    
+    def publish_content(
+        self,
+        project_id: str,
+        platforms: List[str],
+        schedule: Optional[Dict[str, Any]] = None,
+        run_qa: bool = True
+    ) -> Dict[str, Any]:
+        """
+        Publish generated content to specified platforms
+        
+        Args:
+            project_id: Project ID
+            platforms: List of platforms to publish to
+            schedule: Optional scheduling information
+            run_qa: Whether to run quality assurance before publishing
+            
+        Returns:
+            Publishing results
+        """
+        try:
+            with performance_monitor.track_operation('workflow.publish'):
+                self.logger.info(
+                    "Starting content publishing",
+                    project_id=project_id,
+                    platforms=platforms
+                )
+                
+                # Get project and content
+                project = self.db.get_project(project_id)
+                if not project:
+                    raise ValueError(f"Project {project_id} not found")
+                
+                # Run QA if requested
+                if run_qa:
+                    self.db.update_status(project_id, 'qa_review')
+                    qa_result = self.qa_agent.execute(
+                        project_id=project_id,
+                        content=project.get('content', {}),
+                        title=project.get('topic', '')
+                    )
+                    
+                    if not qa_result.get('passed', False):
+                        self.logger.warning(
+                            "Content failed QA, publishing aborted",
+                            project_id=project_id,
+                            quality_score=qa_result.get('overall_score')
+                        )
+                        return {
+                            'success': False,
+                            'project_id': project_id,
+                            'error': 'Content failed quality assurance',
+                            'qa_report': qa_result
+                        }
+                
+                # Update status to publishing
+                self.db.update_status(project_id, 'publishing')
+                
+                # Publish to platforms
+                publish_result = self.publisher_agent.execute(
+                    project_id=project_id,
+                    platforms=platforms,
+                    content=project.get('content', {}),
+                    schedule=schedule
+                )
+                
+                # Save publishing results
+                self.db.update_costs(
+                    project_id,
+                    'publishing',
+                    publish_result.get('cost', 0.0)
+                )
+                
+                # Update project status
+                if publish_result.get('status') == 'completed':
+                    self.db.update_status(project_id, 'published')
+                else:
+                    self.db.update_status(project_id, 'publish_partial')
+                
+                self.logger.info(
+                    "Content publishing completed",
+                    project_id=project_id,
+                    status=publish_result.get('status')
+                )
+                
+                return {
+                    'success': True,
+                    'project_id': project_id,
+                    'publishing_results': publish_result
+                }
+        
+        except Exception as e:
+            self.logger.error(
+                f"Content publishing failed: {str(e)}",
+                project_id=project_id,
+                error=str(e)
+            )
+            
+            return {
+                'success': False,
+                'project_id': project_id,
+                'error': str(e)
+            }
+    
+    def generate_and_publish(
+        self,
+        topic: str,
+        platforms: List[str],
+        tone: str = 'professional and conversational',
+        target_word_count: int = 1200,
+        schedule: Optional[Dict[str, Any]] = None,
+        **kwargs
+    ) -> Dict[str, Any]:
+        """
+        Complete workflow: Generate and publish content
+        
+        Args:
+            topic: Content topic
+            platforms: Platforms to publish to
+            tone: Writing tone
+            target_word_count: Target word count
+            schedule: Publishing schedule
+            **kwargs: Additional parameters
+            
+        Returns:
+            Complete workflow result
+        """
+        try:
+            # Step 1: Generate content
+            generation_result = self.generate_content(
+                topic=topic,
+                tone=tone,
+                target_word_count=target_word_count,
+                **kwargs
+            )
+            
+            if not generation_result.get('success'):
+                return generation_result
+            
+            project_id = generation_result['project_id']
+            
+            # Step 2: Publish content
+            publish_result = self.publish_content(
+                project_id=project_id,
+                platforms=platforms,
+                schedule=schedule,
+                run_qa=True
+            )
+            
+            return {
+                'success': publish_result.get('success'),
+                'project_id': project_id,
+                'generation': generation_result,
+                'publishing': publish_result
+            }
+            
+        except Exception as e:
+            self.logger.error(
+                f"Generate and publish workflow failed: {str(e)}",
+                error=str(e)
+            )
+            
+            return {
+                'success': False,
+                'error': str(e)
+            }

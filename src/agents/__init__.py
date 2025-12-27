@@ -14,6 +14,9 @@ from .image_generator_agent import ImageGeneratorAgent
 from .video_creator_agent import VideoCreatorAgent
 from .audio_creator_agent import AudioCreatorAgent
 
+# Phase 4: Publishing Agent
+from .publisher_agent import PublisherAgent
+
 __all__ = [
     'BaseAgent',
     'ResearchAgent',
@@ -23,5 +26,6 @@ __all__ = [
     'QualityAssuranceAgent',
     'ImageGeneratorAgent',
     'VideoCreatorAgent',
-    'AudioCreatorAgent'
+    'AudioCreatorAgent',
+    'PublisherAgent'
 ]
