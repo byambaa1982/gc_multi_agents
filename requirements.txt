@@ -35,6 +35,11 @@ tweepy==4.14.0  # Twitter/X API
 PyJWT==2.8.0  # JWT tokens for authentication
 bcrypt==4.1.2  # Password hashing
 
+# Phase 5 - Optimization & Security
+psutil==5.9.6  # System resource monitoring
+cryptography==41.0.7  # Encryption for secrets
+google-cloud-monitoring==2.16.0  # Cloud Monitoring integration
+
 # Development
 pytest==7.4.3
 pytest-asyncio==0.23.3
