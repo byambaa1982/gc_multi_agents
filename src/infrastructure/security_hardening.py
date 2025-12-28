@@ -25,11 +25,12 @@ import threading
 try:
     from cryptography.fernet import Fernet
     from cryptography.hazmat.primitives import hashes
-    from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2
+    from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
     CRYPTO_AVAILABLE = True
 except ImportError:
     CRYPTO_AVAILABLE = False
-    print("⚠️ cryptography library not available. Encryption features disabled.")
+    import sys
+    sys.stderr.write("WARNING: cryptography library not available. Encryption features disabled.\n")
 
 
 class SecurityEventType(Enum):
