@@ -249,4 +249,29 @@ class FirestoreManager:
             'errors': errors,
             'updatedAt': firestore.SERVER_TIMESTAMP
         })
-
+    
+    def create_document(self, data: Dict[str, Any], doc_id: Optional[str] = None) -> str:
+        """
+        Create a generic document in the collection
+        
+        Args:
+            data: Document data
+            doc_id: Optional custom document ID (auto-generated if not provided)
+            
+        Returns:
+            Document ID
+        """
+        # Add timestamps
+        data_with_timestamps = {
+            **data,
+            'createdAt': firestore.SERVER_TIMESTAMP,
+            'updatedAt': firestore.SERVER_TIMESTAMP
+        }
+        
+        if doc_id:
+            doc_ref = self.collection.document(doc_id)
+        else:
+            doc_ref = self.collection.document()
+        
+        doc_ref.set(data_with_timestamps)
+        return doc_ref.id

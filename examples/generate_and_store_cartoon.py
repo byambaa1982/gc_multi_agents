@@ -20,7 +20,9 @@ sys.path.insert(0, str(project_root))
 from src.agents.image_generator_agent import ImageGeneratorAgent
 from src.infrastructure.media_processor import MediaProcessor
 from src.infrastructure.storage_manager import CloudStorageManager
+from src.infrastructure.firestore import FirestoreManager
 from src.monitoring.logger import StructuredLogger
+from datetime import datetime
 
 
 def main():
@@ -33,6 +35,7 @@ def main():
     # Get GCP project details
     project_id = os.getenv('GOOGLE_CLOUD_PROJECT')
     bucket_name = os.getenv('GCS_BUCKET_NAME')
+    firestore_collection = os.getenv('FIRESTORE_COLLECTION', 'generated_content')
     
     if not project_id:
         logger.error("GOOGLE_CLOUD_PROJECT not set in .env file")
@@ -164,6 +167,113 @@ def main():
         files = storage_manager.list_files(prefix="cartoons/")
         for file in files:
             logger.info(f"  - {file}")
+        
+        # Step 4: Save metadata and content to Firestore
+        logger.info("\n" + "="*70)
+        logger.info("Step 4: Storing Metadata & Content in Firestore")
+        logger.info("="*70)
+        
+        # Initialize Firestore (reads project from environment)
+        firestore_manager = FirestoreManager()
+        
+        # Generate social media content
+        social_content = {
+            'caption': f"🤖 Meet our friendly robot character! {cartoon_prompt[:100]}...",
+            'description': (
+                f"Generated using AI: {cartoon_prompt}\n\n"
+                f"This cheerful character was created with Vertex AI Imagen, "
+                f"optimized for social media, and ready to brighten your day!"
+            ),
+            'hashtags': [
+                '#AIArt',
+                '#CartoonArt',
+                '#RobotCharacter',
+                '#DigitalArt',
+                '#VertexAI',
+                '#GenerativeAI',
+                '#CreativeAI'
+            ],
+            'post_text': (
+                f"🎨 Fresh AI-generated artwork!\n\n"
+                f"Check out this adorable robot character created with cutting-edge AI. "
+                f"What do you think? 🤔\n\n"
+                f"#AIArt #CartoonArt #GenerativeAI"
+            )
+        }
+        
+        # Create comprehensive metadata document
+        content_id = f"cartoon_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+        metadata = {
+            'content_id': content_id,
+            'content_type': 'image',
+            'category': 'cartoon',
+            'status': 'ready_to_post',
+            
+            # Generation info
+            'generation': {
+                'prompt': image_info['prompt'],
+                'model': 'imagen-3.0-generate-001',
+                'aspect_ratio': '1:1',
+                'cost_usd': result.get('cost', 0),
+                'generated_at': datetime.now().isoformat()
+            },
+            
+            # Storage URLs
+            'storage': {
+                'gcs_bucket': bucket_name,
+                'main_image': {
+                    'url': upload_result['public_url'],
+                    'path': main_path,
+                    'size_bytes': upload_result['size_bytes'],
+                    'format': 'png'
+                },
+                'thumbnail': {
+                    'url': thumb_result['public_url'],
+                    'path': thumb_path,
+                    'size_bytes': thumb_result['size_bytes'],
+                    'format': 'png'
+                }
+            },
+            
+            # Image properties
+            'image_properties': {
+                'width': image.size[0],
+                'height': image.size[1],
+                'mode': image.mode,
+                'dimensions': f"{image.size[0]}x{image.size[1]}"
+            },
+            
+            # Social media content
+            'social_media': social_content,
+            
+            # Posting status tracking
+            'posting_status': {
+                'facebook': 'pending',
+                'instagram': 'pending',
+                'twitter': 'pending',
+                'linkedin': 'pending'
+            },
+            
+            # Timestamps
+            'created_at': datetime.now().isoformat(),
+            'updated_at': datetime.now().isoformat(),
+            
+            # Tags for querying
+            'tags': ['cartoon', 'robot', 'ai-generated', 'social-media-ready'],
+            'visibility': 'public'
+        }
+        
+        # Save to Firestore
+        doc_id = firestore_manager.create_document(metadata)
+        logger.info(f"✓ Saved metadata to Firestore")
+        logger.info(f"  Collection: {firestore_collection}")
+        logger.info(f"  Document ID: {doc_id}")
+        logger.info(f"  Content ID: {content_id}")
+        logger.info(f"\n📱 Social Media Content Ready:")
+        logger.info(f"  Caption: {social_content['caption'][:80]}...")
+        logger.info(f"  Hashtags: {', '.join(social_content['hashtags'][:3])}...")
+    else:
+        logger.warning("Skipping GCS and Firestore steps - bucket not configured")
     
     # Summary
     logger.info("\n" + "="*70)
