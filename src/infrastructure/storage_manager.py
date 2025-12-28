@@ -224,12 +224,20 @@ class CloudStorageManager:
         # Generate public URL (signed URL for security or public URL)
         public_url = blob.public_url
         
-        # Generate signed URL (valid for 7 days)
-        signed_url = blob.generate_signed_url(
-            version='v4',
-            expiration=timedelta(days=7),
-            method='GET'
-        )
+        # Try to generate signed URL (requires service account credentials)
+        signed_url = None
+        try:
+            signed_url = blob.generate_signed_url(
+                version='v4',
+                expiration=timedelta(days=7),
+                method='GET'
+            )
+        except (AttributeError, ValueError) as e:
+            # User doesn't have service account credentials, skip signed URL
+            self.logger.warning(
+                "Could not generate signed URL (requires service account)",
+                error=str(e)
+            )
         
         self.logger.info(
             "Uploaded file to Cloud Storage",
