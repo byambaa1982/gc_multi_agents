@@ -70,7 +70,7 @@ class ResearchAgent(BaseAgent):
     
     def _parse_research_response(self, response: str) -> Dict[str, Any]:
         """
-        Parse JSON research response
+        Parse JSON research response with robust error handling
         
         Args:
             response: Model response
@@ -100,10 +100,40 @@ class ResearchAgent(BaseAgent):
         
         if start_idx >= 0 and end_idx > start_idx:
             json_str = cleaned_response[start_idx:end_idx]
-            return json.loads(json_str)
+            
+            # Try parsing as-is first
+            try:
+                return json.loads(json_str)
+            except json.JSONDecodeError as e:
+                # Try to fix common JSON issues
+                self.logger.warning(f"Initial JSON parse failed ({str(e)}), attempting to fix...")
+                
+                import re
+                fixed_json = json_str
+                
+                # Fix 1: Remove trailing commas before closing braces/brackets
+                fixed_json = re.sub(r',(\s*[}\]])', r'\1', fixed_json)
+                
+                # Fix 2: Fix missing commas between array string elements
+                fixed_json = re.sub(r'"\s*\n\s*"', '",\n"', fixed_json)
+                
+                # Fix 3: Escape unescaped quotes in string values (heuristic)
+                # This is tricky and may not work perfectly
+                
+                # Fix 4: Remove any incomplete trailing content after last }
+                last_brace = fixed_json.rfind('}')
+                if last_brace > 0:
+                    fixed_json = fixed_json[:last_brace + 1]
+                
+                try:
+                    return json.loads(fixed_json)
+                except json.JSONDecodeError as e2:
+                    # Still failed - log and use fallback
+                    self.logger.warning(f"JSON repair failed ({str(e2)}), using text extraction fallback")
+                    # Don't raise - let it fall through to raw text handling
         
-        # If no JSON found, try parsing entire response
-        return json.loads(cleaned_response)
+        # Ultimate fallback - raise to trigger raw text extraction in calling code
+        raise json.JSONDecodeError("Could not parse JSON", cleaned_response, 0)
     
     def _extract_key_points(self, text: str) -> list:
         """

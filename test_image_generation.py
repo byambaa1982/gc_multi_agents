@@ -16,9 +16,9 @@ def test_image_generation():
     
     # Prepare the request
     payload = {
-        "topic": "a cute robot learning to paint",
+        "topic": "a cute puppy playing in the park",
         "content_type": "social_media_post",
-        "platform": "twitter",
+        "platform": "facebook",
         "media_types": ["image"],  # Request image generation
         "metadata": {
             "tone": "friendly",

@@ -160,10 +160,14 @@ async def generate_content(
                 tone = metadata.get('tone', 'professional and conversational')
                 word_count = metadata.get('word_count', 1200)
                 
+                # Check if images should be generated
+                generate_images = 'image' in request.media_types if request.media_types else False
+                
                 result = workflow.generate_content(
                     topic=request.topic,
                     tone=tone,
-                    target_word_count=word_count
+                    target_word_count=word_count,
+                    generate_images=generate_images
                 )
                 logger.info(f"Content generation completed: {result.get('project_id')}")
             except Exception as e:
@@ -214,10 +218,14 @@ async def generate_content_sync(request: ContentGenerationRequest):
         tone = metadata.get('tone', 'professional and conversational')
         word_count = metadata.get('word_count', 1200)
         
+        # Check if images should be generated
+        generate_images = 'image' in request.media_types if request.media_types else False
+        
         result = workflow.generate_content(
             topic=request.topic,
             tone=tone,
-            target_word_count=word_count
+            target_word_count=word_count,
+            generate_images=generate_images
         )
         
         logger.info(f"Workflow result: success={result.get('success')}, project_id={result.get('project_id')}, has_content={bool(result.get('content'))}, has_project={bool(result.get('project'))}")

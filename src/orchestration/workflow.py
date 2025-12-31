@@ -4,10 +4,11 @@ Synchronous workflow orchestrator for content generation
 
 from typing import Dict, Any, Optional, List
 from src.agents import ResearchAgent, ContentGeneratorAgent
+from src.agents.image_generator_agent import ImageGeneratorAgent
 from src.agents.publisher_agent import PublisherAgent
 from src.agents.quality_assurance_agent import QualityAssuranceAgent
 from src.infrastructure import FirestoreManager, CostTracker
-from src.infrastructure.platform_integrations import PlatformIntegrationManager
+from src.infrastructure.storage_manager import CloudStorageManager
 from src.monitoring import StructuredLogger
 from src.monitoring.performance_monitor import performance_monitor
 
@@ -51,6 +52,7 @@ class ContentGenerationWorkflow:
         # Initialize agents
         self.research_agent = ResearchAgent()
         self.content_agent = ContentGeneratorAgent()
+        self.image_agent = ImageGeneratorAgent()
         self.publisher_agent = PublisherAgent()
         self.qa_agent = QualityAssuranceAgent(
             project_id=project_id,
@@ -60,14 +62,23 @@ class ContentGenerationWorkflow:
             quota_manager=quota_manager
         )
         
-        # Initialize platform integrations
-        self.platform_manager = PlatformIntegrationManager()
+        # Initialize storage manager
+        bucket_name = os.getenv('GCS_BUCKET_NAME')
+        if bucket_name:
+            self.storage_manager = CloudStorageManager(
+                project_id=project_id,
+                bucket_name=bucket_name
+            )
+        else:
+            self.storage_manager = None
+            self.logger.warning("GCS_BUCKET_NAME not set, image storage will be disabled")
     
     def generate_content(
         self,
         topic: str,
         tone: str = 'professional and conversational',
         target_word_count: int = 1200,
+        generate_images: bool = False,
         **kwargs
     ) -> Dict[str, Any]:
         """
@@ -77,6 +88,7 @@ class ContentGenerationWorkflow:
             topic: Topic for the blog post
             tone: Writing tone
             target_word_count: Target word count
+            generate_images: Whether to generate images
             **kwargs: Additional parameters
             
         Returns:
@@ -133,6 +145,79 @@ class ContentGenerationWorkflow:
                 content_result.get('cost', 0.0)
             )
             
+            # Step 3: Image Generation (if requested)
+            media_urls = {'image': [], 'video': []}
+            if generate_images and self.storage_manager:
+                self.logger.info("Starting image generation", project_id=project_id)
+                self.db.update_status(project_id, 'generating_media')
+                
+                try:
+                    # Generate image based on topic
+                    image_result = self.image_agent.execute(
+                        project_id=project_id,
+                        prompts=f"Create a high-quality, professional image for a blog post about: {topic}. Style: clean, modern, engaging.",
+                        aspect_ratio="16:9"
+                    )
+                    
+                    if image_result.get('images') and len(image_result['images']) > 0:
+                        # Upload to GCS
+                        import tempfile
+                        import os
+                        from PIL import Image as PILImage
+                        
+                        # Get the first generated image
+                        first_image_data = image_result['images'][0]
+                        pil_image = first_image_data['image']  # This is a PIL Image object
+                        
+                        # Save to temp file
+                        with tempfile.NamedTemporaryFile(delete=False, suffix='.png') as tmp:
+                            pil_image.save(tmp, format='PNG')
+                            tmp_path = tmp.name
+                        
+                        try:
+                            # Upload to GCS
+                            gcs_path = f"generated_images/{project_id}/main_image.png"
+                            upload_result = self.storage_manager.upload_from_local(
+                                local_path=tmp_path,
+                                blob_path=gcs_path,
+                                project_id=project_id
+                            )
+                            
+                            public_url = upload_result.get('public_url') or upload_result.get('signed_url')
+                            media_urls['image'].append(public_url)
+                            
+                            # Save to Firestore
+                            self.db.update_project(project_id, {
+                                'media': {
+                                    'main_image': public_url,
+                                    'all_images': [public_url]
+                                }
+                            })
+                            
+                            # Track cost
+                            self.db.update_costs(
+                                project_id,
+                                'image_generation',
+                                image_result.get('cost', 0.0)
+                            )
+                            
+                            self.logger.info(
+                                "Image generated and uploaded",
+                                project_id=project_id,
+                                url=public_url
+                            )
+                        finally:
+                            # Clean up temp file
+                            if os.path.exists(tmp_path):
+                                os.remove(tmp_path)
+                                
+                except Exception as img_error:
+                    self.logger.error(
+                        f"Image generation failed: {str(img_error)}",
+                        project_id=project_id
+                    )
+                    # Don't fail the whole workflow, just log the error
+            
             # Get final project data
             final_project = self.db.get_project(project_id)
             
@@ -148,7 +233,8 @@ class ContentGenerationWorkflow:
                 'project_id': project_id,
                 'project': final_project,
                 'content': content_result,
-                'research': research_result
+                'research': research_result,
+                'media_urls': media_urls
             }
             
         except Exception as e:

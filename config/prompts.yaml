@@ -26,12 +26,16 @@ research:
     4. Common questions people ask about this topic
     5. Suggested structure for a blog post
     
-    Format your response as structured JSON with these keys:
-    - overview
-    - key_points (array)
-    - trends (array)
-    - common_questions (array)
-    - suggested_structure (array)
+    CRITICAL: You must respond with ONLY valid JSON. Do not wrap in markdown code blocks or add any text before/after.
+    
+    Format your response as valid JSON with these keys:
+    - overview (string)
+    - key_points (array of strings)
+    - trends (array of strings)
+    - common_questions (array of strings)
+    - suggested_structure (array of strings)
+    
+    Ensure all string values properly escape quotes and special characters. Do not include newlines within string values.
 
 content_generator:
   system_prompt: |
@@ -63,12 +67,16 @@ content_generator:
     - Tone: {tone}
     - Include relevant examples
     
-    Format your response as JSON with these keys:
-    - title
-    - introduction
-    - sections (array of objects with "heading" and "content")
-    - conclusion
-    - metadata (suggested tags, category)
+    CRITICAL: You must respond with ONLY valid JSON. Do not wrap in markdown code blocks or add any text before/after.
+    
+    Format your response as valid JSON with these keys:
+    - title (string)
+    - introduction (string)
+    - sections (array of objects with "heading" and "content" keys)
+    - conclusion (string)
+    - metadata (object with "tags" array and "category" string)
+    
+    Ensure all string values properly escape quotes and special characters. Do not include unescaped newlines within string values.
 
 editor:
   system_prompt: |

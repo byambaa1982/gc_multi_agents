@@ -125,7 +125,7 @@ class ContentGeneratorAgent(BaseAgent):
     
     def _parse_content_response(self, response: str) -> Dict[str, Any]:
         """
-        Parse JSON content response
+        Parse JSON content response with robust error handling
         
         Args:
             response: Model response
@@ -155,7 +155,27 @@ class ContentGeneratorAgent(BaseAgent):
         
         if start_idx >= 0 and end_idx > start_idx:
             json_str = cleaned_response[start_idx:end_idx]
-            data = json.loads(json_str)
+            
+            # Try parsing as-is first
+            try:
+                data = json.loads(json_str)
+            except json.JSONDecodeError as e:
+                # Try to fix common JSON issues
+                self.logger.warning(f"Initial JSON parse failed, attempting to fix: {e}")
+                
+                # Fix common issues
+                fixed_json = json_str
+                # Remove trailing commas before closing braces/brackets
+                import re
+                fixed_json = re.sub(r',(\s*[}\]])', r'\1', fixed_json)
+                # Fix missing commas between array elements (heuristic)
+                fixed_json = re.sub(r'"\s*\n\s*"', '",\n"', fixed_json)
+                
+                try:
+                    data = json.loads(fixed_json)
+                except json.JSONDecodeError:
+                    # Still failed, re-raise original error
+                    raise e
             
             # Build full body from sections
             if 'sections' in data and not data.get('body'):
