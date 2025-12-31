@@ -29,18 +29,22 @@ logger = StructuredLogger(name='api')
 class ContentGenerationRequest(BaseModel):
     """Request model for content generation"""
     topic: str = Field(..., description="Topic for the content", min_length=3)
-    tone: str = Field(
-        default="professional and conversational",
-        description="Writing tone"
-    )
-    words: int = Field(default=1200, description="Target word count", ge=100, le=5000)
     content_type: str = Field(
         default="blog_post",
-        description="Type of content (blog_post, article, social_post)"
+        description="Type of content (blog_post, article, social_media_post)"
     )
-    include_image: bool = Field(default=True, description="Generate accompanying image")
-    include_video: bool = Field(default=False, description="Generate accompanying video")
-    publish: bool = Field(default=False, description="Publish to social media platforms")
+    platform: str = Field(
+        default="wordpress",
+        description="Platform (twitter, facebook, instagram, wordpress, medium)"
+    )
+    media_types: list = Field(
+        default=[],
+        description="List of media types to generate (image, video, audio)"
+    )
+    metadata: Optional[dict] = Field(
+        default=None,
+        description="Additional metadata (tone, length, hashtags, etc.)"
+    )
 
 
 class ContentGenerationResponse(BaseModel):
@@ -151,13 +155,15 @@ async def generate_content(
         # Generate content in background
         def run_workflow():
             try:
-                result = workflow.generate_blog_post(
+                # Extract tone and word count from metadata, use defaults if not provided
+                metadata = request.metadata or {}
+                tone = metadata.get('tone', 'professional and conversational')
+                word_count = metadata.get('word_count', 1200)
+                
+                result = workflow.generate_content(
                     topic=request.topic,
-                    tone=request.tone,
-                    target_words=request.words,
-                    include_image=request.include_image,
-                    include_video=request.include_video,
-                    publish=request.publish
+                    tone=tone,
+                    target_word_count=word_count
                 )
                 logger.info(f"Content generation completed: {result.get('project_id')}")
             except Exception as e:
@@ -202,23 +208,76 @@ async def generate_content_sync(request: ContentGenerationRequest):
         
         # Initialize and run workflow
         workflow = ContentGenerationWorkflow()
-        result = workflow.generate_blog_post(
+        
+        # Extract tone and word count from metadata, use defaults if not provided
+        metadata = request.metadata or {}
+        tone = metadata.get('tone', 'professional and conversational')
+        word_count = metadata.get('word_count', 1200)
+        
+        result = workflow.generate_content(
             topic=request.topic,
-            tone=request.tone,
-            target_words=request.words,
-            include_image=request.include_image,
-            include_video=request.include_video,
-            publish=request.publish
+            tone=tone,
+            target_word_count=word_count
         )
         
+        logger.info(f"Workflow result: success={result.get('success')}, project_id={result.get('project_id')}, has_content={bool(result.get('content'))}, has_project={bool(result.get('project'))}")
         logger.info(f"Content generation completed: {result.get('project_id')}")
+        
+        # Check if generation was successful
+        if not result.get('success'):
+            raise HTTPException(
+                status_code=500,
+                detail=f"Content generation failed: {result.get('error', 'Unknown error')}"
+            )
+        
+        # Extract content and project data
+        project = result.get('project', {})
+        content_data = result.get('content', {})
+        
+        # Get the actual content text from project or content data
+        # Priority: project.content.body > content.body > content.content
+        if 'content' in project and 'body' in project['content']:
+            content_text = project['content']['body']
+        elif 'body' in content_data:
+            content_text = content_data['body']
+        elif 'content' in content_data:
+            content_text = content_data['content']
+        else:
+            content_text = 'No content generated'
+        
+        # Get title
+        if 'content' in project and 'title' in project['content']:
+            title = project['content']['title']
+        elif 'title' in content_data:
+            title = content_data['title']
+        else:
+            title = None
+        
+        # Get media URLs if they exist
+        image_urls = content_data.get('image_urls', [])
+        video_urls = content_data.get('video_urls', [])
+        
+        # If no media URLs in content_data, check project
+        if not image_urls and not video_urls:
+            image_urls = project.get('image_urls', [])
+            video_urls = project.get('video_urls', [])
+        
+        # Get word count
+        word_count = None
+        if 'content' in project and 'word_count' in project['content']:
+            word_count = project['content']['word_count']
+        elif 'word_count' in content_data:
+            word_count = content_data['word_count']
         
         return ContentGenerationResponse(
             status="completed",
-            message="Content generated successfully",
+            message=f"Content generated successfully{f' ({word_count} words)' if word_count else ''}",
             project_id=result.get('project_id'),
-            content_url=result.get('content_url'),
-            media_urls=result.get('media_urls')
+            content_url=content_text[:500] + '...' if len(content_text) > 500 else content_text,  # Truncate for API response
+            media_urls={
+                'image': image_urls if isinstance(image_urls, list) else [],
+                'video': video_urls if isinstance(video_urls, list) else []
+            }
         )
         
     except HTTPException:

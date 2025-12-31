@@ -133,12 +133,28 @@ class ContentGeneratorAgent(BaseAgent):
         Returns:
             Parsed content data
         """
+        # Remove markdown code blocks if present
+        cleaned_response = response.strip()
+        
+        # Remove ```json and ``` markers
+        if cleaned_response.startswith('```'):
+            # Find the first newline after ```json or ```
+            first_newline = cleaned_response.find('\n')
+            if first_newline > 0:
+                cleaned_response = cleaned_response[first_newline + 1:]
+            
+            # Remove trailing ```
+            if cleaned_response.endswith('```'):
+                cleaned_response = cleaned_response[:-3]
+        
+        cleaned_response = cleaned_response.strip()
+        
         # Try to find JSON in response
-        start_idx = response.find('{')
-        end_idx = response.rfind('}') + 1
+        start_idx = cleaned_response.find('{')
+        end_idx = cleaned_response.rfind('}') + 1
         
         if start_idx >= 0 and end_idx > start_idx:
-            json_str = response[start_idx:end_idx]
+            json_str = cleaned_response[start_idx:end_idx]
             data = json.loads(json_str)
             
             # Build full body from sections
@@ -148,7 +164,7 @@ class ContentGeneratorAgent(BaseAgent):
             return data
         
         # If no JSON found, try parsing entire response
-        return json.loads(response)
+        return json.loads(cleaned_response)
     
     def _build_body_from_sections(self, content_data: Dict[str, Any]) -> str:
         """

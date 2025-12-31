@@ -17,15 +17,48 @@ class ContentGenerationWorkflow:
     
     def __init__(self):
         """Initialize workflow components"""
+        import os
+        from src.infrastructure.quota_manager import QuotaManager
+        import yaml
+        
         self.logger = StructuredLogger(name='workflow')
         self.db = FirestoreManager()
         self.cost_tracker = CostTracker()
+        
+        # Get configuration
+        project_id = os.getenv('GOOGLE_CLOUD_PROJECT')
+        location = os.getenv('VERTEX_AI_LOCATION', 'us-central1')
+        
+        # Load agent config
+        try:
+            with open('config/agent_config.yaml', 'r') as f:
+                config = yaml.safe_load(f)
+        except:
+            # Default minimal config if file not found
+            config = {
+                'quality_assurance': {
+                    'model': 'gemini-1.5-flash',
+                    'thresholds': {
+                        'min_quality_score': 0.7,
+                        'min_readability_score': 0.6
+                    }
+                }
+            }
+        
+        # Initialize quota manager
+        quota_manager = QuotaManager()
         
         # Initialize agents
         self.research_agent = ResearchAgent()
         self.content_agent = ContentGeneratorAgent()
         self.publisher_agent = PublisherAgent()
-        self.qa_agent = QualityAssuranceAgent()
+        self.qa_agent = QualityAssuranceAgent(
+            project_id=project_id,
+            location=location,
+            config=config.get('quality_assurance', {}),
+            cost_tracker=self.cost_tracker,
+            quota_manager=quota_manager
+        )
         
         # Initialize platform integrations
         self.platform_manager = PlatformIntegrationManager()
