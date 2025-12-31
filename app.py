@@ -1,0 +1,253 @@
+"""
+FastAPI Application for Cloud Run Deployment
+Multi-Agent Content Generation System
+"""
+
+import os
+from typing import Optional
+from fastapi import FastAPI, HTTPException, BackgroundTasks
+from pydantic import BaseModel, Field
+from dotenv import load_dotenv
+from src.orchestration import ContentGenerationWorkflow
+from src.monitoring import StructuredLogger
+from src.infrastructure.budget_controller import BudgetController
+
+# Load environment variables
+load_dotenv()
+
+# Initialize FastAPI app
+app = FastAPI(
+    title="Multi-Agent Content Generation API",
+    description="AI-powered content generation with media creation and publishing",
+    version="1.0.0"
+)
+
+# Initialize logger
+logger = StructuredLogger(name='api')
+
+# Request/Response Models
+class ContentGenerationRequest(BaseModel):
+    """Request model for content generation"""
+    topic: str = Field(..., description="Topic for the content", min_length=3)
+    tone: str = Field(
+        default="professional and conversational",
+        description="Writing tone"
+    )
+    words: int = Field(default=1200, description="Target word count", ge=100, le=5000)
+    content_type: str = Field(
+        default="blog_post",
+        description="Type of content (blog_post, article, social_post)"
+    )
+    include_image: bool = Field(default=True, description="Generate accompanying image")
+    include_video: bool = Field(default=False, description="Generate accompanying video")
+    publish: bool = Field(default=False, description="Publish to social media platforms")
+
+
+class ContentGenerationResponse(BaseModel):
+    """Response model for content generation"""
+    status: str
+    message: str
+    project_id: Optional[str] = None
+    content_url: Optional[str] = None
+    media_urls: Optional[dict] = None
+
+
+class HealthResponse(BaseModel):
+    """Health check response"""
+    status: str
+    version: str
+    budget_status: Optional[dict] = None
+
+
+class BudgetStatusResponse(BaseModel):
+    """Budget status response"""
+    total_spent: float
+    total_budget: float
+    percentage_used: float
+    categories: dict
+    is_throttled: bool
+
+
+@app.get("/", response_model=dict)
+async def root():
+    """Root endpoint"""
+    return {
+        "name": "Multi-Agent Content Generation API",
+        "version": "1.0.0",
+        "status": "running",
+        "endpoints": {
+            "health": "/health",
+            "generate": "/generate (POST)",
+            "budget": "/budget",
+            "docs": "/docs"
+        }
+    }
+
+
+@app.get("/health", response_model=HealthResponse)
+async def health_check():
+    """Health check endpoint for Cloud Run"""
+    try:
+        # Check budget status
+        budget_controller = BudgetController()
+        budget_status = budget_controller.get_budget_status()
+        
+        return HealthResponse(
+            status="healthy",
+            version="1.0.0",
+            budget_status=budget_status
+        )
+    except Exception as e:
+        logger.error(f"Health check failed: {str(e)}")
+        raise HTTPException(status_code=503, detail="Service unhealthy")
+
+
+@app.get("/budget", response_model=BudgetStatusResponse)
+async def get_budget_status():
+    """Get current budget status"""
+    try:
+        budget_controller = BudgetController()
+        status = budget_controller.get_budget_status()
+        
+        return BudgetStatusResponse(
+            total_spent=status['total_spent'],
+            total_budget=status['total_budget'],
+            percentage_used=status['percentage_used'],
+            categories=status['categories'],
+            is_throttled=status.get('is_throttled', False)
+        )
+    except Exception as e:
+        logger.error(f"Failed to get budget status: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to retrieve budget status")
+
+
+@app.post("/generate", response_model=ContentGenerationResponse)
+async def generate_content(
+    request: ContentGenerationRequest,
+    background_tasks: BackgroundTasks
+):
+    """
+    Generate content using multi-agent workflow
+    
+    This endpoint triggers the content generation process and returns immediately.
+    The actual generation happens in the background.
+    """
+    try:
+        logger.info(f"Content generation request received for topic: {request.topic}")
+        
+        # Check budget before processing
+        budget_controller = BudgetController()
+        budget_status = budget_controller.get_budget_status()
+        
+        if budget_status.get('is_throttled', False):
+            raise HTTPException(
+                status_code=429,
+                detail=f"Budget exceeded. Used {budget_status['percentage_used']:.1f}% of monthly budget."
+            )
+        
+        # Initialize workflow
+        workflow = ContentGenerationWorkflow()
+        
+        # Generate content in background
+        def run_workflow():
+            try:
+                result = workflow.generate_blog_post(
+                    topic=request.topic,
+                    tone=request.tone,
+                    target_words=request.words,
+                    include_image=request.include_image,
+                    include_video=request.include_video,
+                    publish=request.publish
+                )
+                logger.info(f"Content generation completed: {result.get('project_id')}")
+            except Exception as e:
+                logger.error(f"Workflow execution failed: {str(e)}")
+        
+        # Add to background tasks
+        background_tasks.add_task(run_workflow)
+        
+        return ContentGenerationResponse(
+            status="processing",
+            message="Content generation started. Check logs for progress.",
+            project_id=None
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Content generation failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+
+
+@app.post("/generate/sync", response_model=ContentGenerationResponse)
+async def generate_content_sync(request: ContentGenerationRequest):
+    """
+    Generate content synchronously (waits for completion)
+    
+    Use this endpoint if you need the result immediately.
+    Note: This may timeout for long-running operations.
+    """
+    try:
+        logger.info(f"Synchronous content generation request for topic: {request.topic}")
+        
+        # Check budget
+        budget_controller = BudgetController()
+        budget_status = budget_controller.get_budget_status()
+        
+        if budget_status.get('is_throttled', False):
+            raise HTTPException(
+                status_code=429,
+                detail=f"Budget exceeded. Used {budget_status['percentage_used']:.1f}% of monthly budget."
+            )
+        
+        # Initialize and run workflow
+        workflow = ContentGenerationWorkflow()
+        result = workflow.generate_blog_post(
+            topic=request.topic,
+            tone=request.tone,
+            target_words=request.words,
+            include_image=request.include_image,
+            include_video=request.include_video,
+            publish=request.publish
+        )
+        
+        logger.info(f"Content generation completed: {result.get('project_id')}")
+        
+        return ContentGenerationResponse(
+            status="completed",
+            message="Content generated successfully",
+            project_id=result.get('project_id'),
+            content_url=result.get('content_url'),
+            media_urls=result.get('media_urls')
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Content generation failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+
+
+# Error handlers
+@app.exception_handler(404)
+async def not_found_handler(request, exc):
+    return {
+        "error": "Not Found",
+        "message": f"The requested path {request.url.path} was not found",
+        "available_endpoints": ["/", "/health", "/generate", "/budget", "/docs"]
+    }
+
+
+@app.exception_handler(500)
+async def internal_error_handler(request, exc):
+    logger.error(f"Internal server error: {str(exc)}")
+    return {
+        "error": "Internal Server Error",
+        "message": "An unexpected error occurred. Please try again later."
+    }
+
+
+if __name__ == "__main__":
+    import uvicorn
+    port = int(os.getenv("PORT", 8080))
+    uvicorn.run(app, host="0.0.0.0", port=port)
