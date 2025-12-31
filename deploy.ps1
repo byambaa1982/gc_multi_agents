@@ -147,13 +147,13 @@ Write-Host "Test your deployment:"
 Write-Host "  curl $SERVICE_URL/health" -ForegroundColor Yellow
 Write-Host ""
 Write-Host "Generate content:"
-Write-Host "  curl -X POST $SERVICE_URL/generate ``" -ForegroundColor Yellow
-Write-Host "    -H 'Content-Type: application/json' ``" -ForegroundColor Yellow
-Write-Host "    -d '{\"topic\": \"AI trends in 2024\", \"include_image\": true}'" -ForegroundColor Yellow
+Write-Host "  curl -X POST ${SERVICE_URL}/generate" -ForegroundColor Yellow
+Write-Host "    -H 'Content-Type: application/json'" -ForegroundColor Yellow
+Write-Host "    -d '{""topic"": ""AI trends in 2024"", ""include_image"": true}'" -ForegroundColor Yellow
 Write-Host ""
 Write-Host "View logs:"
 Write-Host "  gcloud logging read 'resource.type=cloud_run_revision' --limit 50 --project=$PROJECT_ID" -ForegroundColor Yellow
 Write-Host ""
 Write-Host "API Documentation:"
-Write-Host "  $SERVICE_URL/docs" -ForegroundColor Yellow
+Write-Host "  ${SERVICE_URL}/docs" -ForegroundColor Yellow
 Write-Host ""

@@ -83,17 +83,17 @@ if ($envContent -match 'FACEBOOK_PAGE_ID=(.+)') {
 }
 
 Write-Host "`n========================================" -ForegroundColor Green
-Write-Host "✓ Secrets configured in Secret Manager" -ForegroundColor Green
+Write-Host "Secrets configured in Secret Manager" -ForegroundColor Green
 Write-Host "========================================" -ForegroundColor Green
 Write-Host ""
 Write-Host "List all secrets:" -ForegroundColor Yellow
 gcloud secrets list --project=$PROJECT_ID
 
-Write-Host "`n⚠️  IMPORTANT SECURITY STEPS:" -ForegroundColor Red
+Write-Host "`nIMPORTANT SECURITY STEPS:" -ForegroundColor Red
 Write-Host "1. Add .env to .gitignore (if not already)" -ForegroundColor Yellow
 Write-Host "2. Never commit .env or creds.json files" -ForegroundColor Yellow
 Write-Host "3. Delete local .env after deployment (optional)" -ForegroundColor Yellow
 Write-Host ""
 Write-Host "Next step: Run deployment" -ForegroundColor Green
-Write-Host "  .\deploy.ps1" -ForegroundColor Cyan
+Write-Host "  deploy.ps1" -ForegroundColor Cyan
 Write-Host ""
