@@ -221,6 +221,8 @@ async def generate_content_sync(request: ContentGenerationRequest):
         # Check if images should be generated
         generate_images = 'image' in request.media_types if request.media_types else False
         
+        logger.info(f"Media types requested: {request.media_types}, generate_images: {generate_images}")
+        
         result = workflow.generate_content(
             topic=request.topic,
             tone=tone,
@@ -261,14 +263,18 @@ async def generate_content_sync(request: ContentGenerationRequest):
         else:
             title = None
         
-        # Get media URLs if they exist
-        image_urls = content_data.get('image_urls', [])
-        video_urls = content_data.get('video_urls', [])
+        # Get media URLs from result
+        media_urls = result.get('media_urls', {'image': [], 'video': []})
+        image_urls = media_urls.get('image', [])
+        video_urls = media_urls.get('video', [])
         
-        # If no media URLs in content_data, check project
-        if not image_urls and not video_urls:
-            image_urls = project.get('image_urls', [])
-            video_urls = project.get('video_urls', [])
+        # If not in result, check project.media
+        if not image_urls and not video_urls and 'media' in project:
+            media = project.get('media', {})
+            if 'main_image' in media:
+                image_urls = [media['main_image']]
+            elif 'all_images' in media:
+                image_urls = media['all_images']
         
         # Get word count
         word_count = None
